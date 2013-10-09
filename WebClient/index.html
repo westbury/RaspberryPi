@@ -1,0 +1,847 @@
+<!doctype html>
+<!-- Copyright Nigel Westbury 2013 All Rights Reserved -->
+<html lang="en" data-framework="backbonejs">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>OpenDCU House Configuration</title>
+<link rel="stylesheet" href="bower_components/opendcu-common/base.css">
+<link rel="stylesheet" href="site/css/bootstrap.min.css">
+<link rel="stylesheet" href="site/css/bootstrap-responsive.min.css">
+<link rel="stylesheet" href="site/css/main.css">
+</head>
+<body>
+
+	<div class="row">
+
+
+		<div class="span12">
+			<h2>Home Automation Configuration</h2>
+			<p>
+				Draw connections from output devices (switches, sensors etc) to input devices (lights etc).
+			</p>
+		</div>
+
+		<div class="span4">
+
+			<section id="configapp">
+				<header id="header">
+					<h1>Rules</h1>
+					<input id="new-rule" placeholder="Type name of new rule" autofocus>
+				</header>
+				<section id="main">
+					<input id="toggle-all" type="checkbox"> <label
+						for="toggle-all">Mark all as complete</label>
+					<ul id="rule-list"></ul>
+				</section>
+				<footer id="footer"></footer>
+			</section>
+			<footer id="info">
+				<p>Double-click to edit rule name</p>
+			</footer>
+
+		</div>
+
+		<div class="span8" id="container"></div>
+
+		<script
+			src="http://d3lp1msu2r81bx.cloudfront.net/kjs/js/lib/kinetic-v4.5.4.min.js"></script>
+		<script defer="defer">
+			// globals
+			var curveLayer, anchorLayer, deviceMap, connectionMap, draggingConnection
+
+			function buildPushSwitch(x, y) {
+				var group = new Kinetic.Group({
+					draggable : true,
+					x : x,
+					y : y
+				});
+
+				var pushSwitch = new Kinetic.Rect({
+					width : 40,
+					height : 40,
+					x : -20,
+					y : -20,
+					fill : '#ddd',
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var crossLine = new Kinetic.Line({
+					points : [ -10, -5, 10, -5 ],
+					stroke : 'black',
+					strokeWidth : 2,
+					lineCap : 'round',
+					lineJoin : 'round'
+				});
+
+				var leftCircle = new Kinetic.Circle({
+					x : -10,
+					y : 0,
+					radius : 2,
+					stroke : 'black',
+					strokeWidth : 1
+				});
+
+				var rightCircle = new Kinetic.Circle({
+					x : 10,
+					y : 0,
+					radius : 2,
+					stroke : 'black',
+					strokeWidth : 1
+				});
+
+				var leftLine = new Kinetic.Line({
+					points : [ -20, 0, -10, 0 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var rightLine = new Kinetic.Line({
+					points : [ 10, 0, 20, 0 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var verticalLine = new Kinetic.Line({
+					points : [ 0, -10, 0, -5 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				// add hover styling
+				pushSwitch.on('mouseover', function() {
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(4);
+					anchorLayer.draw();
+				});
+				pushSwitch.on('mouseout', function() {
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(2);
+					anchorLayer.draw();
+
+				});
+
+				pushSwitch.on('dragend', function() {
+					drawCurves();
+				});
+
+				group.add(pushSwitch);
+				group.add(leftCircle);
+				group.add(rightCircle);
+				group.add(leftLine);
+				group.add(rightLine);
+				group.add(verticalLine);
+				group.add(crossLine);
+				anchorLayer.add(group);
+				return group;
+			}
+
+			function buildTwoWaySwitch(x, y) {
+				var group = new Kinetic.Group({
+					draggable : true,
+					x : x,
+					y : y
+				});
+
+				var twoWaySwitch = new Kinetic.Rect({
+					width : 40,
+					height : 40,
+					x : -20,
+					y : -20,
+					fill : '#ddd',
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var crossLine = new Kinetic.Line({
+					points : [ -10, 0, 10, 0 ],
+					stroke : 'black',
+					strokeWidth : 2,
+					lineCap : 'round',
+					lineJoin : 'round'
+				});
+
+				var rightCircle1 = new Kinetic.Circle({
+					x : 10,
+					y : -5,
+					radius : 2,
+					stroke : 'black',
+					strokeWidth : 1
+				});
+
+				var rightCircle2 = new Kinetic.Circle({
+					x : 10,
+					y : 5,
+					radius : 2,
+					stroke : 'black',
+					strokeWidth : 1
+				});
+
+				var leftLine = new Kinetic.Line({
+					points : [ -20, 0, -10, 0 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var rightLine1 = new Kinetic.Line({
+					points : [ 10, -5, 20, -5 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				var rightLine2 = new Kinetic.Line({
+					points : [ 10, 5, 20, 5 ],
+					stroke : 'black',
+					strokeWidth : 2
+				});
+
+				// add hover styling
+				twoWaySwitch.on('mouseover', function() {
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(4);
+					anchorLayer.draw();
+				});
+				twoWaySwitch.on('mouseout', function() {
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(2);
+					anchorLayer.draw();
+
+				});
+
+				twoWaySwitch.on('dragend', function() {
+					drawCurves();
+				});
+
+				group.add(twoWaySwitch);
+				group.add(rightCircle1);
+				group.add(rightCircle2);
+				group.add(leftLine);
+				group.add(rightLine1);
+				group.add(rightLine2);
+				group.add(crossLine);
+				anchorLayer.add(group);
+				return group;
+			}
+
+			function buildLight(x, y) {
+				var group = new Kinetic.Group({
+					draggable : true,
+					x : x,
+					y : y
+				});
+
+				var light = new Kinetic.Circle({
+					x : 0,
+					y : 0,
+					radius : 20,
+					stroke : '#666',
+					fill : 'yellow',
+					strokeWidth : 2
+				});
+
+				// add hover styling
+				light.on('mouseover', function() {
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(4);
+					anchorLayer.draw();
+				});
+				light.on('mouseout', function() {
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(2);
+					anchorLayer.draw();
+
+				});
+
+				light.on('dragend', function() {
+					drawCurves();
+				});
+
+				group.add(light);
+				anchorLayer.add(group);
+				return group;
+			}
+
+			function drawCurves() {
+				var canvas = curveLayer.getCanvas();
+				var context = canvas.getContext();
+
+				canvas.clear();
+
+				for ( var key in connectionMap) {
+					connectionMap[key].drawConnection(context);
+				}
+				
+				if (draggingConnection) {
+					draggingConnection.drawConnection(context);
+				}
+			}
+
+			// Return the closest connector, of the given type
+			// (input or output), and that does not already have
+			// a connection, or null if no such connector is within
+			// a radius of 10 pixels.
+			function findClosestConnector(dropX, dropY, validConnectorType) {
+				var bestDistance = 100;
+				var bestConnector = null;
+
+				for ( var key in deviceMap) {
+					var eachDeviceWrapper = deviceMap[key];
+
+					for ( var i = 0; i < eachDeviceWrapper.connectorWrappers.length; i++) {
+						var eachConnectorWrapper = eachDeviceWrapper.connectorWrappers[i];
+
+						// Input end of connection can be dragged only to input connectors,
+						// and output end of connection can be dragged only to output connectors,
+													if (eachConnectorWrapper.type == validConnectorType
+															&& !eachConnectorWrapper.connection) {
+							var xOffset = eachConnectorWrapper
+									.getAbsoluteX()
+									- dropX;
+							var yOffset = eachConnectorWrapper
+									.getAbsoluteY()
+									- dropY;
+							var distance = xOffset
+									* xOffset + yOffset
+									* yOffset;
+
+							console.log('device ' + eachConnectorWrapper.deviceWrapper.device.get("name") + ', ' 
+									+ eachConnectorWrapper.connectorIndex + ' is at ' + distance);
+							
+							if (distance < bestDistance) {
+								bestDistance = distance;
+								bestConnector = eachConnectorWrapper;
+							}
+						}
+					}
+				}
+				
+				return bestConnector;
+			}
+			
+			window.onload = function() {
+				var stage = new Kinetic.Stage({
+					container : 'container',
+					width : 578,
+					height : 200
+				});
+
+				anchorLayer = new Kinetic.Layer();
+
+				// curveLayer just contains a canvas which is drawn
+				// onto with the existing canvas API
+				curveLayer = new Kinetic.Layer();
+
+				// Load the data
+				var devices = app.deviceInstances;
+				devices.fetch();
+
+				var connections = app.connections;
+				connections.fetch();
+
+				console.log('len ' + devices.length);
+				if (devices.length == 0) {
+					console.log('here');
+
+					var livingRoomSwitch1 = new app.DeviceInstance({
+						name : "Living Room 1",
+						type : "push",
+						x : 50,
+						y : 50
+					});
+
+					var livingRoomSwitch2 = new app.DeviceInstance({
+						name : "Living Room 2",
+						type : 'twoway',
+						x : 50,
+						y : 100
+					});
+
+					var livingRoomSwitch3 = new app.DeviceInstance({
+						name : "Living Room 3",
+						type : 'twoway',
+						x : 50,
+						y : 150
+					});
+
+					var livingRoomLight1 = new app.DeviceInstance({
+						name : "Living Room (Left)",
+						type : 'light',
+						x : 300,
+						y : 50
+					});
+
+					var livingRoomLight2 = new app.DeviceInstance({
+						name : "Living Room (Middle)",
+						type : 'light',
+						x : 300,
+						y : 100
+					});
+
+					var livingRoomLight3 = new app.DeviceInstance({
+						name : "Living Room (Right)",
+						type : 'light',
+						x : 300,
+						y : 150
+					});
+
+					devices.add(livingRoomSwitch1);
+					devices.add(livingRoomSwitch2);
+					devices.add(livingRoomSwitch3);
+					devices.add(livingRoomLight1);
+					devices.add(livingRoomLight2);
+					devices.add(livingRoomLight3);
+				}
+
+				// Create maps that map the model objects to our own
+				// constructs.
+				deviceMap = {};
+				connectionMap = {};
+
+				// Device instance wrapper
+				function DeviceWrapper(device) {
+					this.device = device;
+					this.color = "red";
+				}
+
+				DeviceWrapper.prototype.buildDevice = function() {
+					var type = this.device.get("type");
+					var x = this.device.get("x");
+					var y = this.device.get("y");
+
+					var connectorPoints;
+
+					if (type == 'push') {
+						console.log("it's a push");
+						this.group = buildPushSwitch(x, y);
+						connectorPoints = [ [ 27, 0, 'output' ] ];
+					}
+					if (type == 'twoway') {
+						this.group = buildTwoWaySwitch(x, y);
+						connectorPoints = [ [ 27, -5, 'output' ],
+								[ 27, 5, 'output' ] ];
+					}
+					if (type == 'light') {
+						this.group = buildLight(x, y);
+						connectorPoints = [ [ -27, 0, 'input' ] ];
+					}
+
+					this.connectorWrappers = new Array();
+
+					for ( var i = 0; i < connectorPoints.length; i++) {
+						var attributes = connectorPoints[i];
+						console.log(attributes[0] + ", " + attributes[1]);
+						var connectorWrapper = new ConnectorWrapper(this, i,
+								attributes[0], attributes[1], attributes[2]);
+						connectorWrapper.buildConnector();
+						this.connectorWrappers.push(connectorWrapper);
+					}
+					;
+				};
+
+				DeviceWrapper.prototype.getConnector = function(index) {
+					return this.connectorWrappers[index];
+				};
+
+				// Connection wrapper
+				function ConnectionWrapper(connection) {
+					this.connection = connection;
+					this.color = "red";
+				};
+
+				ConnectionWrapper.prototype.getConnector = function(type) {
+					var deviceId = this.connection.get(type + "Device");
+					var deviceWrapper = deviceMap[deviceId];
+					var connectorIndex = this.connection
+							.get(type + "Connector");
+					return deviceWrapper
+					.getConnector(connectorIndex);
+				};
+
+				ConnectionWrapper.prototype.drawConnection = function(context) {
+					var startConnector = this.getConnector('output');
+					var endConnector = this.getConnector('input');
+					
+					console.log(startConnector.deviceWrapper.device.get("name") + ' to '
+							+ endConnector.deviceWrapper.device.get("name"));
+
+					// draw bezier
+					context.beginPath();
+					var startX1 = startConnector.getAbsoluteX();
+					var startY1 = startConnector.getAbsoluteY();
+					var endX1 = endConnector.getAbsoluteX();
+					var endY1 = endConnector.getAbsoluteY();
+					context.moveTo(startX1, startY1);
+					context.bezierCurveTo(startX1 + 50, startY1, endX1 - 50,
+							endY1, endX1, endY1);
+					context.strokeStyle = 'green';
+					context.lineWidth = 4;
+					context.stroke();
+				};
+
+				// Dragging connection wrapper - a new connection being
+				// formed, but not yet dropped on end point.
+				function DraggingConnection(draggingConnector, replacementCircle) {
+					this.draggingConnector = draggingConnector;
+					this.replacementCircle = replacementCircle;
+				};
+
+				DraggingConnection.prototype.drawConnection = function(context) {
+					var bezierPoints;
+					if (this.draggingConnector.type == 'output') {
+						bezierPoints = {
+								start : this.replacementCircle,
+								end : this.draggingConnector.circle
+							};
+					} else {
+						bezierPoints = {
+								start : this.draggingConnector.circle,
+								end : this.replacementCircle
+							};
+					}
+					
+					var groupX = this.draggingConnector.deviceWrapper.group.getX();
+					var groupY = this.draggingConnector.deviceWrapper.group.getY();
+					
+					// draw bezier
+					context.beginPath();
+					var startX1 = groupX + bezierPoints.start.getX();
+					var startY1 = groupY + bezierPoints.start.getY();
+					var endX1 = groupX + bezierPoints.end.getX();
+					var endY1 = groupY + bezierPoints.end.getY();
+					context.moveTo(startX1, startY1);
+					context.bezierCurveTo(startX1 + 100, startY1, endX1 - 100,
+							endY1, endX1, endY1);
+					context.strokeStyle = 'green';
+					context.lineWidth = 4;
+					context.stroke();
+				};
+
+				// Connection point wrapper
+				function ConnectorWrapper(deviceWrapper, connectorIndex, x, y,
+						type) {
+					this.deviceWrapper = deviceWrapper;
+					this.connectorIndex = connectorIndex;
+					this.x = x;
+					this.y = y;
+					this.type = type;
+				}
+				;
+
+				// Draws a connector circle but does no more.  We get just
+				// a static circle.  This method is used when we are dragging
+				// a connector and we want a connector to appear underneath
+				// where the dragged connector originated.
+				ConnectorWrapper.prototype.drawConnectorCircle = function() {
+					var connectorCircle = new Kinetic.Circle({
+						draggable : true,
+						x : this.x,
+						y : this.y,
+						radius : 5,
+						stroke : 'black',
+						strokeWidth : 2
+					});
+
+					this.deviceWrapper.group.add(connectorCircle);
+
+					return connectorCircle;
+				};
+
+				ConnectorWrapper.prototype.buildConnector = function() {
+					var connectorCircle = this.drawConnectorCircle();
+					this.activateConnectorCircle(connectorCircle);
+				};
+
+				ConnectorWrapper.prototype.replaceCircle = function(
+						replacementCircle) {
+					this.circle.remove();
+					this.activateConnectorCircle(replacementCircle);
+				};
+
+				ConnectorWrapper.prototype.activateConnectorCircle = function(
+						replacementCircle) {
+					this.circle = replacementCircle;
+
+					// So available from inner functions
+					var connectorWrapper = this;
+
+					// add hover styling
+					this.circle.on('mouseover', function() {
+						document.body.style.cursor = 'pointer';
+						this.setStrokeWidth(4);
+						anchorLayer.draw();
+					});
+					this.circle.on('mouseout', function() {
+						document.body.style.cursor = 'default';
+						this.setStrokeWidth(2);
+						anchorLayer.draw();
+
+					});
+
+					var replacement;
+
+					this.circle.on('dragstart', function() {
+						// Create a new connector circle.
+						// The one being dragged with be disposed when
+						// dropped regardless of where it is dropped.
+						replacement = connectorWrapper.drawConnectorCircle();
+						
+						if (!connectorWrapper.connection) {
+							// create a 'floating' connection so the user sees it
+							// as the connector is dragged.
+							draggingConnection = new DraggingConnection(connectorWrapper, replacement);
+						}
+					});
+
+					this.circle
+							.on(
+									'dragend',
+									function() {
+										if (draggingConnection) {
+											// Before we replace circle, get the drop co-ordinates
+											var dropX = draggingConnection.draggingConnector.deviceWrapper.group.getX() + draggingConnection.draggingConnector.circle.getX();
+											var dropY = draggingConnection.draggingConnector.deviceWrapper.group.getY() + draggingConnection.draggingConnector.circle.getY();
+											console.log('dropped at ' + dropX + ', ' + dropY);
+											
+											draggingConnection.draggingConnector
+											.replaceCircle(draggingConnection.replacementCircle);
+
+											var validConnectorType = (draggingConnection.draggingConnector.type == 'output') ? 'input' : 'output';
+										
+											// Find the closest connector.
+											var bestConnector = findClosestConnector(dropX, dropY, validConnectorType);
+
+											// If the user didn't drop near any valid connectors then
+											// just forget it.
+
+											if (bestConnector) {
+												console
+												.log('new connection to '
+														+ bestConnector.deviceWrapper.device.cid
+														+ ', '
+														+ bestConnector.connectorIndex);
+
+												// Create a new connection
+
+												var outputConnector;
+												var inputConnector;
+												
+												if (draggingConnection.draggingConnector.type == 'output') {
+													outputConnector = draggingConnection.draggingConnector;
+													inputConnector = bestConnector;
+												} else {
+													outputConnector = bestConnector;
+													inputConnector = draggingConnection.draggingConnector;
+												}
+
+												var newConnection = new app.Connection(
+														{
+															outputDevice : outputConnector.deviceWrapper.device.cid,
+															outputConnector : outputConnector.connectorIndex,
+															inputDevice : inputConnector.deviceWrapper.device.cid,
+															inputConnector : inputConnector.connectorIndex,
+														});
+
+												console.log('new connection from ' + outputConnector.deviceWrapper.device.cid + ', ' + outputConnector.connectorIndex + ' to ' + inputConnector.deviceWrapper.device.cid + ', ' + inputConnector.connectorIndex);
+												connections.add(newConnection);
+
+												// Add a wrapper for this connection
+												var wrapper = new ConnectionWrapper(newConnection);
+												connectionMap[newConnection.cid] = wrapper;
+
+												var deviceWrapper = deviceMap[newConnection
+														.get("inputDevice")];
+												var connectorIndex = newConnection
+														.get("inputConnector");
+												deviceWrapper.getConnector(connectorIndex).connection = newConnection;
+
+												deviceWrapper = deviceMap[newConnection
+														.get("outputDevice")];
+												connectorIndex = newConnection.get("outputConnector");
+												deviceWrapper.getConnector(connectorIndex).connection = newConnection;
+											}
+											
+											draggingConnection = null;
+										} else {
+											// Before we replace circle, get the drop co-ordinates
+											var dropX = connectorWrapper
+													.getAbsoluteX();
+											var dropY = connectorWrapper
+													.getAbsoluteY();
+
+											console
+													.log('about to replace circle');
+											connectorWrapper
+													.replaceCircle(replacement);
+											console.log('replaced circle');
+
+											// Find the closest connector.
+											var bestConnector = findClosestConnector(dropX, dropY, connectorWrapper.type);
+
+											// If the user didn't drop near any valid connectors so just
+											// connect back to the original connector.
+
+											var connection = connectorWrapper.connection;
+
+											if (bestConnector) {
+												console
+												.log('switched from '
+														+ connectorWrapper.deviceWrapper.device.cid
+														+ ', '
+														+ connectorWrapper.connectorIndex
+														+ ' to '
+														+ bestConnector.deviceWrapper.device.cid
+														+ ', '
+														+ bestConnector.connectorIndex);
+
+												connectorWrapper.connection = null;
+												bestConnector.connection = connection;
+
+												if (connectorWrapper.type == 'input') {
+													connection
+															.set(
+																	"inputDevice",
+																	bestConnector.deviceWrapper.device.cid);
+													connection
+															.set(
+																	"inputConnector",
+																	bestConnector.connectorIndex);
+												} else {
+													connection
+															.set(
+																	"outputDevice",
+																	bestConnector.deviceWrapper.device.cid);
+													connection
+															.set(
+																	"outputConnector",
+																	bestConnector.connectorIndex);
+												}
+											} else {
+												var connectionWrapper = connectionMap[connection.cid];
+												var outputConnector = connectionWrapper.getConnector('output');
+												var inputConnector = connectionWrapper.getConnector('input');
+
+												outputConnector.connection = null;
+												inputConnector.connection = null;
+
+												// The end of the connection was dropped somewhere
+												// that is not a valid connector.
+												// Remove the entire connection.
+												delete connectionMap[connection.cid];
+
+												app.connections.remove(connection);
+											}
+										}
+
+										anchorLayer.draw();
+										drawCurves();
+									});
+				};
+
+				ConnectorWrapper.prototype.getAbsoluteX = function() {
+					return this.circle.getX() + this.deviceWrapper.group.getX();
+				};
+
+				ConnectorWrapper.prototype.getAbsoluteY = function() {
+					return this.circle.getY() + this.deviceWrapper.group.getY();
+				};
+
+				devices.each(function(device) {
+					console.log(device.get("name"));
+					console.log(device.get("type"));
+
+					var type = device.get("type");
+					var x = device.get("x");
+					var y = device.get("y");
+
+					var wrapper = new DeviceWrapper(device);
+
+					// wrapper.color = "reddish";
+
+					wrapper.buildDevice();
+
+					deviceMap[device.cid] = wrapper;
+				});
+
+				connections
+						.each(function(connection) {
+							console.log(connection.get("inputDevice"));
+							console.log(connection.get("outputDevice"));
+
+							var wrapper = new ConnectionWrapper(connection);
+							connectionMap[connection.cid] = wrapper;
+
+							var deviceWrapper = deviceMap[connection
+									.get("inputDevice")];
+							var connectorIndex = connection
+									.get("inputConnector");
+							deviceWrapper.getConnector(connectorIndex).connection = connection;
+
+							deviceWrapper = deviceMap[connection
+									.get("outputDevice")];
+							connectorIndex = connection.get("outputConnector");
+							deviceWrapper.getConnector(connectorIndex).connection = connection;
+						});
+
+				// keep curves insync with the lines
+				anchorLayer.on('beforeDraw', function() {
+					drawCurves();
+				});
+
+				stage.add(curveLayer);
+				stage.add(anchorLayer);
+
+				drawCurves();
+			};
+		</script>
+
+
+
+
+
+
+	</div>
+
+	<script type="text/template" id="item-template">
+			<div class="view">
+				<input class="toggle" type="checkbox" <%= completed ? 'checked' : '' %>>
+				<label><%- title %></label>
+				<button class="destroy"></button>
+			</div>
+			<input class="edit" value="<%- title %>">
+		</script>
+	<script type="text/template" id="stats-template">
+			<span id="rule-count"><strong><%= remaining %></strong> <%= remaining === 1 ? 'item' : 'items' %> left</span>
+			<ul id="filters">
+				<li>
+					<a class="selected" href="#/">All</a>
+				</li>
+				<li>
+					<a href="#/active">Active</a>
+				</li>
+				<li>
+					<a href="#/completed">Completed</a>
+				</li>
+			</ul>
+			<% if (completed) { %>
+			<button id="clear-completed">Clear completed (<%= completed %>)</button>
+			<% } %>
+		</script>
+	<script src="bower_components/opendcu-common/base.js"></script>
+	<script src="bower_components/jquery/jquery.js"></script>
+	<script src="bower_components/underscore/underscore.js"></script>
+	<script src="bower_components/backbone/backbone.js"></script>
+	<script
+		src="bower_components/backbone.localStorage/backbone.localStorage.js"></script>
+	<script src="js/models/rules.js"></script>
+	<script src="js/models/deviceinstance.js"></script>
+	<script src="js/models/connection.js"></script>
+	<script src="js/collections/rules.js"></script>
+	<script src="js/collections/deviceinstances.js"></script>
+	<script src="js/collections/connections.js"></script>
+	<script src="js/views/rules.js"></script>
+	<script src="js/views/app.js"></script>
+	<script src="js/routers/router.js"></script>
+	<script src="js/app.js"></script>
+</body>
+</html>
